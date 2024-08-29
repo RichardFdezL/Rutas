@@ -1,0 +1,210 @@
+<html><head><base href="https://creativewebsim.org/gps-tracking-app/">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Tracking App</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #ffff00;
+        }
+        .login-form, .tracking-form {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 3px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        #loginBtn {
+            background-color: #ffff00;
+            color: #000;
+        }
+        #startRoute {
+            background-color: #00ff00;
+        }
+        #addPoint {
+            background-color: #0000ff;
+        }
+        #endRoute {
+            background-color: #ff0000;
+        }
+        #locationList {
+            background-color: #333;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GPS Tracking App</h1>
+        <div id="loginForm" class="login-form">
+            <input type="text" id="username" placeholder="Usuario">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button id="loginBtn">Iniciar Sesión</button>
+        </div>
+        <div id="trackingForm" class="tracking-form hidden">
+            <input type="text" id="unitNumber" placeholder="Número de Unidad">
+            <input type="text" id="shift" placeholder="Turno">
+            <input type="text" id="routeName" placeholder="Nombre de Ruta">
+            <button id="startRoute">Iniciar Ruta</button>
+            <button id="addPoint">Llegada a Punto</button>
+            <button id="endRoute">Fin de Ruta</button>
+        </div>
+        <div id="locationList" class="hidden"></div>
+    </div>
+
+    <script>
+        // Check if the app is running as a PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(function(registration) {
+                    console.log('Service Worker registered');
+                })
+                .catch(function(error) {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+
+        var loginForm = document.getElementById('loginForm');
+        var trackingForm = document.getElementById('trackingForm');
+        var locationList = document.getElementById('locationList');
+        var loginBtn = document.getElementById('loginBtn');
+        var startRouteBtn = document.getElementById('startRoute');
+        var addPointBtn = document.getElementById('addPoint');
+        var endRouteBtn = document.getElementById('endRoute');
+
+        var locations = [];
+
+        loginBtn.addEventListener('click', function() {
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+
+            if (username === 'admin' && password === 'userprueba') {
+                loginForm.classList.add('hidden');
+                trackingForm.classList.remove('hidden');
+                locationList.classList.remove('hidden');
+            } else {
+                alert('Usuario o contraseña incorrectos');
+            }
+        });
+
+        startRouteBtn.addEventListener('click', function() {
+            var unitNumber = document.getElementById('unitNumber').value;
+            var shift = document.getElementById('shift').value;
+            var routeName = document.getElementById('routeName').value;
+
+            if (unitNumber && shift && routeName) {
+                locations = [];
+                addLocation('Inicio de ruta');
+                updateLocationList();
+            } else {
+                alert('Por favor, complete todos los campos');
+            }
+        });
+
+        addPointBtn.addEventListener('click', function() {
+            addLocation('Llegada a punto');
+            updateLocationList();
+        });
+
+        endRouteBtn.addEventListener('click', function() {
+            addLocation('Fin de ruta');
+            updateLocationList();
+            generatePDF();
+        });
+
+        function addLocation(type) {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var latitude = position.coords.latitude;
+                    var longitude = position.coords.longitude;
+                    var timestamp = new Date().toLocaleString();
+                    locations.push({ type: type, latitude: latitude, longitude: longitude, timestamp: timestamp });
+                    updateLocationList();
+                }, function(error) {
+                    console.error('Error getting location:', error);
+                    locations.push({ type: type, latitude: 'N/A', longitude: 'N/A', timestamp: new Date().toLocaleString() });
+                    updateLocationList();
+                });
+            } else {
+                console.error('Geolocation is not supported');
+                locations.push({ type: type, latitude: 'N/A', longitude: 'N/A', timestamp: new Date().toLocaleString() });
+                updateLocationList();
+            }
+        }
+
+        function updateLocationList() {
+            locationList.innerHTML = '<h2>Ubicaciones:</h2>';
+            for (var i = 0; i < locations.length; i++) {
+                var location = locations[i];
+                locationList.innerHTML += '<p>' + location.type + ' - Lat: ' + location.latitude + ', Lon: ' + location.longitude + ' - ' + location.timestamp + '</p>';
+            }
+        }
+
+        function generatePDF() {
+            var jsPDF = window.jspdf.jsPDF;
+            var doc = new jsPDF();
+
+            var unitNumber = document.getElementById('unitNumber').value;
+            var shift = document.getElementById('shift').value;
+            var routeName = document.getElementById('routeName').value;
+
+            doc.setFontSize(18);
+            doc.text('Reporte de Ruta', 105, 15, null, null, 'center');
+            
+            doc.setFontSize(12);
+            doc.text('Número de Unidad: ' + unitNumber, 20, 30);
+            doc.text('Turno: ' + shift, 20, 40);
+            doc.text('Ruta: ' + routeName, 20, 50);
+
+            doc.setFontSize(14);
+            doc.text('Ubicaciones:', 20, 70);
+
+            var yOffset = 80;
+            for (var i = 0; i < locations.length; i++) {
+                var location = locations[i];
+                doc.setFontSize(10);
+                doc.text(location.type + ' - Lat: ' + location.latitude + ', Lon: ' + location.longitude + ' - ' + location.timestamp, 20, yOffset);
+                yOffset += 10;
+            }
+
+            doc.save('reporte_ruta.pdf');
+            locations = [];
+            updateLocationList();
+        }
+    </script>
+</body></html>
